@@ -18,6 +18,7 @@ public class EmpleadoEntity {
     private String apellido;
     private String email;
 
+
     @JsonIgnoreProperties(value = {"empleados", "hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     private EmpresaEntity empresa;

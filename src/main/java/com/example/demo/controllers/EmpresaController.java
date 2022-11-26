@@ -45,9 +45,34 @@ public class EmpresaController {
         return new ResponseEntity<Map<String, Object>>(response, HttpStatus.OK);
     }
 
-    public EmpresaEntity findById(@PathVariable Long id){
-        return empresaServices.findById(id);
+    @GetMapping("/{id}")
+    public ResponseEntity<?> findById(@PathVariable Long id ){
+        EmpresaEntity empresaDB = null;
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            empresaDB = empresaServices.findById(id);
+            if(empresaDB == null){
+                response.put("mensaje", "La empresa con id: " + id + " no se encuentra en la base de datos");
+                return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NOT_FOUND);
+            }
+
+        }catch (DataAccessException e){
+
+            response.put("mensaje", "Error al realizar la consulta en la base de datos");
+            response.put("error", e.getMessage().concat(": ").concat(e.getMostSpecificCause().getMessage()));
+
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        response.put("empresas", empresaDB);
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.OK);
+
     }
+    /*public EmpresaEntity findById(@PathVariable Long id){
+        return empresaServices.findById(id);
+    }*/
 
     @PostMapping
     public ResponseEntity<?> create( @Valid @RequestBody EmpresaDto empresa, BindingResult result ) {
@@ -80,18 +105,66 @@ public class EmpresaController {
     }
 
     @PutMapping("/{id}")
-    public EmpresaEntity edit(@RequestBody EmpresaEntity empresa, @PathVariable Long id){
-        EmpresaEntity empresaDb = empresaServices.findById(id);
-        if(empresaDb == null){
-            return null;
+    public ResponseEntity<?> edit( @Valid @RequestBody EmpresaDto empresa, BindingResult result,
+                                   @PathVariable Long id){
+        EmpresaEntity empresaDb = null;
+        EmpresaEntity empresaCurrent = new EmpresaEntity(empresa.getNombre());
+        Map<String, Object> response = new HashMap<>();
+        if(result.hasErrors()){
+            List<String> errors = result.getFieldErrors()
+                    .stream()
+                    .map(err -> {
+                        return "El campo '" + err.getField() + "' " + err.getDefaultMessage();
+                    }).collect(Collectors.toList());
+            response.put("errors", errors);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
         }
-        empresaDb.setNombre(empresa.getNombre());
-        return empresaServices.save(empresaDb);
+
+        try{
+            empresaDb = empresaServices.findById(id);
+            if(empresaDb == null){
+                response.put("mensaje", "La empresa con id: " + id + " no se encuentra en la base de datos");
+                return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NOT_FOUND);
+            }
+
+            empresaDb.setNombre(empresaCurrent.getNombre());
+            empresaDb = empresaServices.save(empresaDb);
+        } catch (DataAccessException e){
+            response.put("mensaje", "Error al realizar el insert en la base de datos");
+            response.put("error", e.getMessage().concat(": ").concat(e.getMostSpecificCause().getMessage()));
+
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        response.put("mensaje", "La empresa se a creado con exito");
+        response.put("empresa", empresaDb);
+
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.CREATED);
     }
 
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id){
-        empresaServices.deleteById(id);
+    public  ResponseEntity<?> delete(@PathVariable Long id){
+        EmpresaEntity empresaDB = null;
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            empresaDB =  empresaServices.findById(id);
+            if(empresaDB == null){
+
+                response.put("mensaje", "La empresa con id: " + id + " no se encuentra en la base de datos");
+                return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NOT_FOUND);
+            }
+            empresaServices.deleteById(id);
+        } catch (DataAccessException e){
+
+            response.put("mensaje", "Error al realizar la acción en la base de datos");
+            response.put("error", e.getMessage().concat(": ").concat(e.getMostSpecificCause().getMessage()));
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NO_CONTENT);
+
     }
 }
